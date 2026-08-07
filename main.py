@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, render_template_string
+from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -17,6 +17,7 @@ from datetime import datetime
 from io import BytesIO
 from PIL import Image
 import urllib3
+import sys
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -571,7 +572,7 @@ class ConsultaCNPJHeadless:
         """Inicia o Chrome em modo headless (sem interface gráfica)"""
         chrome_options = Options()
         
-        # Modo headless (não abre janela)
+        # Configurações para Railway
         chrome_options.add_argument('--headless=new')
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
@@ -582,9 +583,26 @@ class ConsultaCNPJHeadless:
         chrome_options.add_experimental_option('useAutomationExtension', False)
         chrome_options.add_argument('--ignore-certificate-errors')
         chrome_options.add_argument('--ignore-ssl-errors')
-        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-setuid-sandbox')
+        chrome_options.add_argument('--remote-debugging-port=9222')
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        self.driver = webdriver.Chrome(options=chrome_options)
+        # Tenta usar o Chrome do sistema ou o instalado pelo Railway
+        try:
+            # Tenta encontrar o Chrome no PATH
+            self.driver = webdriver.Chrome(options=chrome_options)
+        except:
+            # Se falhar, tenta com o caminho padrão do Railway
+            try:
+                from selenium.webdriver.chrome.service import Service
+                chrome_options.binary_location = "/usr/bin/chromium-browser"
+                self.driver = webdriver.Chrome(options=chrome_options)
+            except:
+                # Última tentativa
+                chrome_options.binary_location = "/usr/bin/google-chrome"
+                self.driver = webdriver.Chrome(options=chrome_options)
+        
         self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
     def capturar_screenshot(self):
@@ -844,4 +862,6 @@ if __name__ == '__main__':
     print(f"📡 Modo: Headless (sem abrir navegador)")
     print("="*60)
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Para Railway, usa a porta definida pelo ambiente
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
